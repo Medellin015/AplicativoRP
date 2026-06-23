@@ -1,0 +1,13 @@
+{
+  "name": "aplicativorp",
+  "version": "1.0.0",
+  "description": "Registro y Análisis Presupuestal CDP & CRP 2026 — ACTIVA",
+  "private": true,
+  "scripts": {
+    "build": "node build.js",
+    "start": "npx --yes serve ."
+  },
+  "devDependencies": {
+    "@babel/standalone": "^7.24.0"
+  }
+}
