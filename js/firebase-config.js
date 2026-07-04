@@ -23,12 +23,12 @@
   // (localStorage) sin romperse.
   // ==========================================================================
   const firebaseConfig = {
-    apiKey: "",                                       // <- pega desde la consola
+    apiKey: "AIzaSyCHRruHvP9xBr_3DCH1nXoJxG5Ugv6uiPI",
     authDomain: "cdp-rp-pagos.firebaseapp.com",
     projectId: "cdp-rp-pagos",
-    storageBucket: "cdp-rp-pagos.firebasestorage.app", // usa el valor que muestre la consola
-    messagingSenderId: "",                            // <- pega desde la consola
-    appId: ""                                         // <- pega desde la consola
+    storageBucket: "cdp-rp-pagos.firebasestorage.app",
+    messagingSenderId: "308232294692",
+    appId: "1:308232294692:web:98512fa7b2cbd0745223b1"
   };
 
   // Solo activamos la nube cuando la config esencial está completa,
