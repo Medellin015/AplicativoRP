@@ -66,7 +66,25 @@ funcionando en modo local.
 
 - Registro de **CDP** (Certificados de Disponibilidad Presupuestal) y **CRP/RP**
   (Registros Presupuestales) con fórmulas replicadas del Excel original.
+- **Control de pagos**: registro y seguimiento de facturas (hoja
+  `CONTROL DE PAGOS` del Excel) — fechas del flujo (INFO, supervisor,
+  financiera, contabilidad, tesorería), valores (antes de IVA, IVA, TOTAL
+  automático), proveedor/NIT, OP/CRP, cliente y estado de pago
+  (OK, EN TESORERÍA, EN CONTABILIDAD, PENDIENTE DE CERTIFICAR,
+  PENDIENTE DE ANULAR, ANULADO) con KPIs y filtro por estado.
 - **Saldos CDP** (Valor CDP − Valor RP) y panel de **Análisis** (tablas
   dinámicas por fuente, categoría, rubro y contrato).
-- **Importar / Exportar Excel** (`.xlsx`), con respaldo a CSV.
+- **Importar / Exportar Excel** (`.xlsx`), con respaldo a CSV. La importación
+  reconoce las hojas `CDP`, `CRP` y `CONTROL DE PAGOS`.
 - Modo claro / oscuro y localización es-CO.
+
+## Sistema de diseño (tarjetas)
+
+Los contenedores usan un estilo de **tarjetas elevadas (soft UI)**: esquinas
+redondeadas, borde hairline de 1px y sombras suaves en capas entintadas con el
+color de marca. Al pasar el mouse la tarjeta sube 2px con sombra más profunda
+(~150ms), y al cargar aparecen con entrada escalonada tipo fade-up. Todo se
+controla con **tokens CSS** en `css/styles.css` (`:root` y `.dark`):
+`--brand-rgb`, `--card-radius`, `--card-shadow`, `--card-lift`,
+`--transition-fast`, `--stagger-step`, etc. Se respeta
+`prefers-reduced-motion` (las animaciones se desactivan).
