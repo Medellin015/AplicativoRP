@@ -259,7 +259,7 @@ function Kpi({
     slate: "from-slate-500 to-slate-700"
   };
   return /*#__PURE__*/React.createElement("div", {
-    className: `rounded-xl p-4 text-white shadow-md bg-gradient-to-br ${map[color]} slide-up`
+    className: `card card-gradient p-4 text-white bg-gradient-to-br ${map[color]}`
   }, /*#__PURE__*/React.createElement("div", {
     className: "text-xs uppercase tracking-wide opacity-90"
   }, titulo), /*#__PURE__*/React.createElement("div", {
@@ -375,7 +375,7 @@ function FormularioCDP({
     localStorage.removeItem('borrador_cdp');
   };
   return /*#__PURE__*/React.createElement("div", {
-    className: "bg-white dark:bg-slate-900 rounded-xl p-5 shadow border border-slate-200 dark:border-slate-800 slide-up"
+    className: "card bg-white dark:bg-slate-900 p-5"
   }, /*#__PURE__*/React.createElement("h3", {
     className: "font-semibold mb-4 text-lg"
   }, registro ? 'Editar CDP' : 'Nuevo CDP'), /*#__PURE__*/React.createElement("div", {
@@ -513,7 +513,7 @@ function TablaCDP({
   }, [cdps, q]);
   const total = useMemo(() => filtrados.reduce((s, c) => s + toNum(c.valor), 0), [filtrados]);
   return /*#__PURE__*/React.createElement("div", {
-    className: "bg-white dark:bg-slate-900 rounded-xl shadow border border-slate-200 dark:border-slate-800 overflow-hidden"
+    className: "card bg-white dark:bg-slate-900 overflow-hidden"
   }, /*#__PURE__*/React.createElement("div", {
     className: "p-3 flex flex-wrap items-center gap-3 border-b border-slate-200 dark:border-slate-800"
   }, /*#__PURE__*/React.createElement("input", {
@@ -646,7 +646,7 @@ function FormularioCRP({
     localStorage.removeItem('borrador_crp');
   };
   return /*#__PURE__*/React.createElement("div", {
-    className: "bg-white dark:bg-slate-900 rounded-xl p-5 shadow border border-slate-200 dark:border-slate-800 slide-up"
+    className: "card bg-white dark:bg-slate-900 p-5"
   }, /*#__PURE__*/React.createElement("h3", {
     className: "font-semibold mb-4 text-lg"
   }, registro ? 'Editar RP' : 'Nuevo RP'), /*#__PURE__*/React.createElement("div", {
@@ -827,7 +827,7 @@ function TablaCRP({
   }, [rows, q]);
   const total = useMemo(() => filtrados.reduce((s, c) => s + toNum(c.valor), 0), [filtrados]);
   return /*#__PURE__*/React.createElement("div", {
-    className: "bg-white dark:bg-slate-900 rounded-xl shadow border border-slate-200 dark:border-slate-800 overflow-hidden"
+    className: "card bg-white dark:bg-slate-900 overflow-hidden"
   }, /*#__PURE__*/React.createElement("div", {
     className: "p-3 flex flex-wrap items-center gap-3 border-b border-slate-200 dark:border-slate-800"
   }, /*#__PURE__*/React.createElement("input", {
@@ -895,6 +895,525 @@ function TablaCRP({
 }
 
 /* ============================================================================
+   5.5 PESTAÑA CONTROL DE PAGOS — seguimiento de facturas (hoja CONTROL DE PAGOS)
+   ============================================================================ */
+const PAGO_ESTADOS = ['OK', 'EN TESORERÍA', 'EN CONTABILIDAD', 'PENDIENTE DE CERTIFICAR', 'PENDIENTE DE ANULAR', 'ANULADO'];
+const PAGO_ESTADO_CLS = {
+  'OK': 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
+  'EN TESORERÍA': 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300',
+  'EN CONTABILIDAD': 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300',
+  'PENDIENTE DE CERTIFICAR': 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
+  'PENDIENTE DE ANULAR': 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300',
+  'ANULADO': 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'
+};
+const PAGO_VACIO = {
+  fechaFactura: hoyISO(),
+  fechaInfo: hoyISO(),
+  fechaVenc: '',
+  factura: '',
+  valorAntesIva: '',
+  iva: '',
+  proveedor: '',
+  nit: '',
+  nContrato: '',
+  valorContrato: '',
+  valorAdicion: '',
+  op: '',
+  crp: '',
+  valFacCrp: '',
+  contratoCrp: '',
+  contratoInteradm: '',
+  cliente: '',
+  area: '',
+  supervisor: '',
+  fechaSupervisor: '',
+  fechaFinanciera: '',
+  fechaContabilidad: '',
+  fechaTesoreria: '',
+  pago: '',
+  fechaPago: '',
+  notaCredito: '',
+  observacion: '',
+  fechaDevolucion: '',
+  informe: ''
+};
+
+// DIAS = días entre ingreso a INFO y vencimiento (inclusive, como en el Excel)
+const calcDiasPago = (fechaInfo, fechaVenc) => {
+  if (!fechaInfo || !fechaVenc) return '';
+  const a = new Date(fechaInfo + 'T00:00:00'),
+    b = new Date(fechaVenc + 'T00:00:00');
+  if (isNaN(a) || isNaN(b)) return '';
+  return Math.round((b - a) / 86400000) + 1;
+};
+// TOTAL = VALOR ANTES DE IVA + IVA
+const calcTotalFactura = (valorAntesIva, iva) => toNum(valorAntesIva) + toNum(iva);
+function FormularioPago({
+  registro,
+  onGuardar,
+  onCancelar,
+  pagos
+}) {
+  const [f, setF] = useState(registro || PAGO_VACIO);
+  const toast = useToast();
+  const set = (k, v) => setF(s => ({
+    ...s,
+    [k]: v
+  }));
+  useEffect(() => {
+    if (!registro) {
+      const b = localStorage.getItem('borrador_pago');
+      if (b) {
+        try {
+          setF(JSON.parse(b));
+        } catch (e) {}
+      }
+    }
+  }, []);
+  useEffect(() => {
+    if (!registro) localStorage.setItem('borrador_pago', JSON.stringify(f));
+  }, [f, registro]);
+
+  // Catálogos que crecen con los propios registros
+  const cat = useMemo(() => {
+    const prov = new Set(),
+      cli = new Set(),
+      area = new Set(),
+      sup = new Set();
+    pagos.forEach(p => {
+      if (p.proveedor) prov.add(p.proveedor);
+      if (p.cliente) cli.add(p.cliente);
+      if (p.area) area.add(p.area);
+      if (p.supervisor) sup.add(p.supervisor);
+    });
+    return {
+      prov: [...prov].sort(),
+      cli: [...cli].sort(),
+      area: [...area].sort(),
+      sup: [...sup].sort()
+    };
+  }, [pagos]);
+
+  // Autorelleno del proveedor por NIT desde los registros existentes
+  const onNit = v => {
+    const dig = String(v).replace(/\D/g, '');
+    const match = pagos.find(p => String(p.nit ?? '').replace(/\D/g, '') === dig && p.proveedor);
+    setF(s => ({
+      ...s,
+      nit: v,
+      proveedor: !s.proveedor && match ? match.proveedor : s.proveedor
+    }));
+  };
+  const dias = calcDiasPago(f.fechaInfo, f.fechaVenc);
+  const total = calcTotalFactura(f.valorAntesIva, f.iva);
+  const guardar = () => {
+    if (!String(f.factura).trim()) {
+      toast('El N° de FACTURA es obligatorio', 'err');
+      return;
+    }
+    if (toNum(f.valorAntesIva) <= 0) {
+      toast('El VALOR ANTES DE IVA debe ser mayor a 0', 'err');
+      return;
+    }
+    onGuardar({
+      ...f,
+      valorAntesIva: toNum(f.valorAntesIva),
+      iva: toNum(f.iva),
+      total,
+      dias,
+      valorContrato: toNum(f.valorContrato),
+      valorAdicion: toNum(f.valorAdicion),
+      valFacCrp: toNum(f.valFacCrp)
+    });
+    localStorage.removeItem('borrador_pago');
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: "card bg-white dark:bg-slate-900 p-5"
+  }, /*#__PURE__*/React.createElement("h3", {
+    className: "font-semibold mb-4 text-lg"
+  }, registro ? 'Editar factura' : 'Nueva factura'), /*#__PURE__*/React.createElement("h4", {
+    className: "text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-3"
+  }, "Factura"), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-1 md:grid-cols-3 gap-4"
+  }, /*#__PURE__*/React.createElement(Campo, {
+    label: "Factura",
+    req: true,
+    hint: "Ej: FEHS270"
+  }, /*#__PURE__*/React.createElement("input", {
+    className: inputCls,
+    value: f.factura,
+    onChange: e => set('factura', e.target.value)
+  })), /*#__PURE__*/React.createElement(Campo, {
+    label: "Fecha de elaboraci\xF3n"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "date",
+    className: inputCls,
+    value: f.fechaFactura,
+    onChange: e => set('fechaFactura', e.target.value)
+  })), /*#__PURE__*/React.createElement(Campo, {
+    label: "Fecha de ingreso a INFO"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "date",
+    className: inputCls,
+    value: f.fechaInfo,
+    onChange: e => set('fechaInfo', e.target.value)
+  })), /*#__PURE__*/React.createElement(Campo, {
+    label: "Fecha de vencimiento"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "date",
+    className: inputCls,
+    value: f.fechaVenc,
+    onChange: e => set('fechaVenc', e.target.value)
+  })), /*#__PURE__*/React.createElement(Campo, {
+    label: "Valor antes de IVA",
+    req: true
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    className: inputCls,
+    value: f.valorAntesIva,
+    onChange: e => set('valorAntesIva', e.target.value)
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "text-xs text-emerald-600 dark:text-emerald-400"
+  }, fmtCOP(f.valorAntesIva))), /*#__PURE__*/React.createElement(Campo, {
+    label: "IVA"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    className: inputCls,
+    value: f.iva,
+    onChange: e => set('iva', e.target.value)
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "text-xs text-emerald-600 dark:text-emerald-400"
+  }, fmtCOP(f.iva)))), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-1 md:grid-cols-3 gap-4 mt-3"
+  }, /*#__PURE__*/React.createElement(CampoCalc, {
+    label: "Total",
+    valor: fmtCOP(total)
+  }), /*#__PURE__*/React.createElement(CampoCalc, {
+    label: "D\xEDas (INFO \u2192 vencimiento)",
+    valor: dias
+  })), /*#__PURE__*/React.createElement("h4", {
+    className: "text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-3 mt-6"
+  }, "Proveedor y contrato"), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-1 md:grid-cols-3 gap-4"
+  }, /*#__PURE__*/React.createElement(Campo, {
+    label: "NIT proveedor",
+    hint: "Autorrellena el proveedor si ya existe"
+  }, /*#__PURE__*/React.createElement("input", {
+    className: inputCls,
+    value: f.nit,
+    onChange: e => onNit(e.target.value)
+  })), /*#__PURE__*/React.createElement(Campo, {
+    label: "Proveedor"
+  }, /*#__PURE__*/React.createElement("input", {
+    className: inputCls,
+    list: "dl-pago-prov",
+    value: f.proveedor,
+    onChange: e => set('proveedor', e.target.value)
+  }), /*#__PURE__*/React.createElement("datalist", {
+    id: "dl-pago-prov"
+  }, cat.prov.map(x => /*#__PURE__*/React.createElement("option", {
+    key: x,
+    value: x
+  })))), /*#__PURE__*/React.createElement(Campo, {
+    label: "N\xB0 Contrato"
+  }, /*#__PURE__*/React.createElement("input", {
+    className: inputCls,
+    value: f.nContrato,
+    onChange: e => set('nContrato', e.target.value)
+  })), /*#__PURE__*/React.createElement(Campo, {
+    label: "Valor del contrato"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    className: inputCls,
+    value: f.valorContrato,
+    onChange: e => set('valorContrato', e.target.value)
+  })), /*#__PURE__*/React.createElement(Campo, {
+    label: "Valor adici\xF3n contrato"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    className: inputCls,
+    value: f.valorAdicion,
+    onChange: e => set('valorAdicion', e.target.value)
+  })), /*#__PURE__*/React.createElement(Campo, {
+    label: "OP"
+  }, /*#__PURE__*/React.createElement("input", {
+    className: inputCls,
+    value: f.op,
+    onChange: e => set('op', e.target.value)
+  })), /*#__PURE__*/React.createElement(Campo, {
+    label: "CRP"
+  }, /*#__PURE__*/React.createElement("input", {
+    className: inputCls,
+    value: f.crp,
+    onChange: e => set('crp', e.target.value)
+  })), /*#__PURE__*/React.createElement(Campo, {
+    label: "Val. factura CRP"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    className: inputCls,
+    value: f.valFacCrp,
+    onChange: e => set('valFacCrp', e.target.value)
+  })), /*#__PURE__*/React.createElement(Campo, {
+    label: "N\xB0 contrato de acuerdo a CRP"
+  }, /*#__PURE__*/React.createElement("input", {
+    className: inputCls,
+    value: f.contratoCrp,
+    onChange: e => set('contratoCrp', e.target.value)
+  })), /*#__PURE__*/React.createElement(Campo, {
+    label: "Cliente"
+  }, /*#__PURE__*/React.createElement("input", {
+    className: inputCls,
+    list: "dl-pago-cli",
+    value: f.cliente,
+    onChange: e => set('cliente', e.target.value)
+  }), /*#__PURE__*/React.createElement("datalist", {
+    id: "dl-pago-cli"
+  }, cat.cli.map(x => /*#__PURE__*/React.createElement("option", {
+    key: x,
+    value: x
+  })))), /*#__PURE__*/React.createElement(Campo, {
+    label: "Contrato interadministrativo"
+  }, /*#__PURE__*/React.createElement("input", {
+    className: inputCls,
+    value: f.contratoInteradm,
+    onChange: e => set('contratoInteradm', e.target.value)
+  })), /*#__PURE__*/React.createElement(Campo, {
+    label: "\xC1rea supervisora"
+  }, /*#__PURE__*/React.createElement("input", {
+    className: inputCls,
+    list: "dl-pago-area",
+    value: f.area,
+    onChange: e => set('area', e.target.value)
+  }), /*#__PURE__*/React.createElement("datalist", {
+    id: "dl-pago-area"
+  }, cat.area.map(x => /*#__PURE__*/React.createElement("option", {
+    key: x,
+    value: x
+  }))))), /*#__PURE__*/React.createElement("h4", {
+    className: "text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-3 mt-6"
+  }, "Trazabilidad y pago"), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-1 md:grid-cols-3 gap-4"
+  }, /*#__PURE__*/React.createElement(Campo, {
+    label: "Nombre supervisor"
+  }, /*#__PURE__*/React.createElement("input", {
+    className: inputCls,
+    list: "dl-pago-sup",
+    value: f.supervisor,
+    onChange: e => set('supervisor', e.target.value)
+  }), /*#__PURE__*/React.createElement("datalist", {
+    id: "dl-pago-sup"
+  }, cat.sup.map(x => /*#__PURE__*/React.createElement("option", {
+    key: x,
+    value: x
+  })))), /*#__PURE__*/React.createElement(Campo, {
+    label: "Fecha entrega al supervisor"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "date",
+    className: inputCls,
+    value: f.fechaSupervisor,
+    onChange: e => set('fechaSupervisor', e.target.value)
+  })), /*#__PURE__*/React.createElement(Campo, {
+    label: "Fecha recepci\xF3n financiera"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "date",
+    className: inputCls,
+    value: f.fechaFinanciera,
+    onChange: e => set('fechaFinanciera', e.target.value)
+  })), /*#__PURE__*/React.createElement(Campo, {
+    label: "Fecha entrega contabilidad"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "date",
+    className: inputCls,
+    value: f.fechaContabilidad,
+    onChange: e => set('fechaContabilidad', e.target.value)
+  })), /*#__PURE__*/React.createElement(Campo, {
+    label: "Fecha entrega tesorer\xEDa"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "date",
+    className: inputCls,
+    value: f.fechaTesoreria,
+    onChange: e => set('fechaTesoreria', e.target.value)
+  })), /*#__PURE__*/React.createElement(Campo, {
+    label: "Estado de pago"
+  }, /*#__PURE__*/React.createElement("select", {
+    className: inputCls,
+    value: f.pago,
+    onChange: e => set('pago', e.target.value)
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "\u2014 Sin estado \u2014"), PAGO_ESTADOS.map(x => /*#__PURE__*/React.createElement("option", {
+    key: x,
+    value: x
+  }, x)))), /*#__PURE__*/React.createElement(Campo, {
+    label: "Fecha de pago"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "date",
+    className: inputCls,
+    value: f.fechaPago,
+    onChange: e => set('fechaPago', e.target.value)
+  })), /*#__PURE__*/React.createElement(Campo, {
+    label: "Nota cr\xE9dito"
+  }, /*#__PURE__*/React.createElement("input", {
+    className: inputCls,
+    value: f.notaCredito,
+    onChange: e => set('notaCredito', e.target.value)
+  })), /*#__PURE__*/React.createElement(Campo, {
+    label: "Fecha devoluci\xF3n a la supervisi\xF3n"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "date",
+    className: inputCls,
+    value: f.fechaDevolucion,
+    onChange: e => set('fechaDevolucion', e.target.value)
+  })), /*#__PURE__*/React.createElement(Campo, {
+    label: "Informe"
+  }, /*#__PURE__*/React.createElement("input", {
+    className: inputCls,
+    value: f.informe,
+    onChange: e => set('informe', e.target.value)
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "md:col-span-2"
+  }, /*#__PURE__*/React.createElement(Campo, {
+    label: "Observaci\xF3n"
+  }, /*#__PURE__*/React.createElement("textarea", {
+    rows: 2,
+    className: inputCls,
+    value: f.observacion,
+    onChange: e => set('observacion', e.target.value)
+  })))), /*#__PURE__*/React.createElement("div", {
+    className: "flex justify-end gap-2 mt-5"
+  }, onCancelar && /*#__PURE__*/React.createElement("button", {
+    onClick: onCancelar,
+    className: "px-4 py-2 rounded-lg bg-slate-200 dark:bg-slate-700 text-sm"
+  }, "Cancelar"), /*#__PURE__*/React.createElement("button", {
+    onClick: guardar,
+    className: "px-5 py-2 rounded-lg bg-teal-600 text-white hover:bg-teal-700 text-sm font-medium"
+  }, registro ? 'Guardar cambios' : 'Registrar factura')));
+}
+function TablaPagos({
+  pagos,
+  onEditar,
+  onEliminar
+}) {
+  const [q, setQ] = useState('');
+  const [estado, setEstado] = useState('');
+  const filtrados = useMemo(() => {
+    let r = pagos;
+    if (estado) r = r.filter(p => String(p.pago ?? '') === estado);
+    const t = q.trim().toLowerCase();
+    if (t) r = r.filter(p => [p.factura, p.proveedor, p.nit, p.nContrato, p.op, p.crp, p.cliente, p.area, p.supervisor, p.observacion].some(x => String(x ?? '').toLowerCase().includes(t)));
+    return r;
+  }, [pagos, q, estado]);
+  const kpi = useMemo(() => {
+    const suma = arr => arr.reduce((s, p) => s + toNum(p.total ?? calcTotalFactura(p.valorAntesIva, p.iva)), 0);
+    const pagadas = filtrados.filter(p => p.pago === 'OK');
+    const anuladas = filtrados.filter(p => p.pago === 'ANULADO' || p.pago === 'PENDIENTE DE ANULAR');
+    const tramite = filtrados.filter(p => !anuladas.includes(p) && p.pago !== 'OK');
+    return {
+      total: suma(filtrados),
+      pagado: suma(pagadas),
+      tramite: suma(tramite),
+      nPag: pagadas.length,
+      nTram: tramite.length,
+      nAnul: anuladas.length
+    };
+  }, [filtrados]);
+  return /*#__PURE__*/React.createElement("div", {
+    className: "space-y-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "stagger grid grid-cols-2 md:grid-cols-4 gap-3"
+  }, /*#__PURE__*/React.createElement(Kpi, {
+    titulo: "Total facturado",
+    valor: fmtCOP(kpi.total),
+    sub: `${filtrados.length} facturas`,
+    color: "sky"
+  }), /*#__PURE__*/React.createElement(Kpi, {
+    titulo: "Pagado (OK)",
+    valor: fmtCOP(kpi.pagado),
+    sub: `${kpi.nPag} facturas`,
+    color: "emerald"
+  }), /*#__PURE__*/React.createElement(Kpi, {
+    titulo: "En tr\xE1mite",
+    valor: fmtCOP(kpi.tramite),
+    sub: `${kpi.nTram} facturas`,
+    color: "amber"
+  }), /*#__PURE__*/React.createElement(Kpi, {
+    titulo: "Anuladas / por anular",
+    valor: String(kpi.nAnul),
+    sub: "facturas",
+    color: "rose"
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "card bg-white dark:bg-slate-900 overflow-hidden"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "p-3 flex flex-wrap items-center gap-3 border-b border-slate-200 dark:border-slate-800"
+  }, /*#__PURE__*/React.createElement("input", {
+    className: inputCls + " flex-1 min-w-[200px]",
+    placeholder: "Buscar por factura, proveedor, NIT, contrato, OP, CRP, cliente\u2026",
+    value: q,
+    onChange: e => setQ(e.target.value)
+  }), /*#__PURE__*/React.createElement("select", {
+    className: inputCls,
+    value: estado,
+    onChange: e => setEstado(e.target.value)
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "Todos los estados"), PAGO_ESTADOS.map(x => /*#__PURE__*/React.createElement("option", {
+    key: x,
+    value: x
+  }, x))), /*#__PURE__*/React.createElement("span", {
+    className: "text-sm text-slate-500"
+  }, filtrados.length, " registros")), /*#__PURE__*/React.createElement("div", {
+    className: "overflow-auto max-h-[60vh]"
+  }, /*#__PURE__*/React.createElement("table", {
+    className: "w-full text-sm border-collapse"
+  }, /*#__PURE__*/React.createElement("thead", {
+    className: "sticky-head bg-slate-100 dark:bg-slate-800 text-xs uppercase text-slate-500"
+  }, /*#__PURE__*/React.createElement("tr", null, ['Factura', 'F. factura', 'Vencimiento', 'Proveedor', 'NIT', 'Total', 'OP', 'CRP', 'Cliente', 'Estado', 'F. pago', ''].map(h => /*#__PURE__*/React.createElement("th", {
+    key: h,
+    className: "px-3 py-2 text-left whitespace-nowrap"
+  }, h)))), /*#__PURE__*/React.createElement("tbody", null, filtrados.map(p => /*#__PURE__*/React.createElement("tr", {
+    key: p._id,
+    className: "border-t border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50"
+  }, /*#__PURE__*/React.createElement("td", {
+    className: "px-3 py-2 font-medium whitespace-nowrap"
+  }, p.factura), /*#__PURE__*/React.createElement("td", {
+    className: "px-3 py-2 whitespace-nowrap"
+  }, fmtFecha(p.fechaFactura)), /*#__PURE__*/React.createElement("td", {
+    className: "px-3 py-2 whitespace-nowrap"
+  }, fmtFecha(p.fechaVenc)), /*#__PURE__*/React.createElement("td", {
+    className: "px-3 py-2 max-w-[200px] truncate",
+    title: p.proveedor
+  }, p.proveedor), /*#__PURE__*/React.createElement("td", {
+    className: "px-3 py-2 whitespace-nowrap"
+  }, p.nit), /*#__PURE__*/React.createElement("td", {
+    className: "px-3 py-2 text-right whitespace-nowrap font-medium"
+  }, fmtCOP(p.total ?? calcTotalFactura(p.valorAntesIva, p.iva))), /*#__PURE__*/React.createElement("td", {
+    className: "px-3 py-2 whitespace-nowrap"
+  }, p.op), /*#__PURE__*/React.createElement("td", {
+    className: "px-3 py-2 whitespace-nowrap"
+  }, p.crp), /*#__PURE__*/React.createElement("td", {
+    className: "px-3 py-2 max-w-[140px] truncate",
+    title: p.cliente
+  }, p.cliente), /*#__PURE__*/React.createElement("td", {
+    className: "px-3 py-2"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: `px-2 py-0.5 rounded text-xs whitespace-nowrap ${PAGO_ESTADO_CLS[p.pago] || 'bg-slate-100 text-slate-400 dark:bg-slate-800'}`
+  }, p.pago || '—')), /*#__PURE__*/React.createElement("td", {
+    className: "px-3 py-2 whitespace-nowrap"
+  }, fmtFecha(p.fechaPago)), /*#__PURE__*/React.createElement("td", {
+    className: "px-3 py-2 whitespace-nowrap"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => onEditar(p),
+    className: "text-sky-600 hover:underline mr-2"
+  }, "Editar"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => onEliminar(p),
+    className: "text-rose-600 hover:underline"
+  }, "Eliminar")))), filtrados.length === 0 && /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", {
+    colSpan: 12,
+    className: "px-3 py-8 text-center text-slate-400"
+  }, "Sin registros")))))));
+}
+
+/* ============================================================================
    6. ANÁLISIS — Saldos CDP, Tablas dinámicas (TD CDP/RP) y Compromisos vs Ppto
    ============================================================================ */
 
@@ -950,7 +1469,7 @@ function Ranking({
 }) {
   const max = datos.length ? Math.max(...datos.map(d => Math.abs(d.v))) : 0;
   return /*#__PURE__*/React.createElement("div", {
-    className: "bg-white dark:bg-slate-900 rounded-xl p-4 shadow border border-slate-200 dark:border-slate-800"
+    className: "card bg-white dark:bg-slate-900 p-4"
   }, /*#__PURE__*/React.createElement("h4", {
     className: "font-semibold mb-3 text-sm"
   }, titulo), /*#__PURE__*/React.createElement("div", {
@@ -1027,7 +1546,7 @@ function SaldosCDP({
   return /*#__PURE__*/React.createElement("div", {
     className: "space-y-4"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "grid grid-cols-2 md:grid-cols-3 gap-3"
+    className: "stagger grid grid-cols-2 md:grid-cols-3 gap-3"
   }, /*#__PURE__*/React.createElement(Kpi, {
     titulo: "Total CDP",
     valor: fmtCOP(tot.cdp),
@@ -1041,7 +1560,7 @@ function SaldosCDP({
     valor: fmtCOP(tot.saldo),
     color: tot.saldo < 0 ? 'rose' : 'emerald'
   })), /*#__PURE__*/React.createElement("div", {
-    className: "bg-white dark:bg-slate-900 rounded-xl shadow border border-slate-200 dark:border-slate-800 overflow-hidden"
+    className: "card bg-white dark:bg-slate-900 overflow-hidden"
   }, /*#__PURE__*/React.createElement("div", {
     className: "p-3 flex flex-wrap items-center gap-3 border-b border-slate-200 dark:border-slate-800"
   }, /*#__PURE__*/React.createElement("input", {
@@ -1120,7 +1639,7 @@ function Analisis({
   return /*#__PURE__*/React.createElement("div", {
     className: "space-y-5"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "grid grid-cols-1 lg:grid-cols-2 gap-4"
+    className: "stagger grid grid-cols-1 lg:grid-cols-2 gap-4"
   }, /*#__PURE__*/React.createElement(Ranking, {
     titulo: "CDP por Fuente de presupuesto",
     datos: tdCdpFuente,
@@ -1158,7 +1677,8 @@ function Analisis({
    ============================================================================ */
 const excelFechaISO = v => {
   if (v == null || v === '') return '';
-  if (v instanceof Date) {
+  // instanceof puede fallar si el Date viene de otro contexto; se detecta por forma
+  if (v instanceof Date || typeof v === 'object' && typeof v.getFullYear === 'function') {
     return `${v.getFullYear()}-${String(v.getMonth() + 1).padStart(2, '0')}-${String(v.getDate()).padStart(2, '0')}`;
   }
   if (typeof v === 'number') {
@@ -1206,12 +1726,14 @@ async function importarExcel(file, DB, push, recargar) {
   const hoja = n => wb.Sheets[wb.SheetNames.find(s => s.trim().toUpperCase() === n)] || null;
   const wsCdp = hoja('CDP');
   const wsCrp = hoja('CRP');
-  if (!wsCdp && !wsCrp) {
-    push('El Excel no tiene hojas CDP ni CRP', 'err');
+  const wsPagos = hoja('CONTROL DE PAGOS');
+  if (!wsCdp && !wsCrp && !wsPagos) {
+    push('El Excel no tiene hojas CDP, CRP ni CONTROL DE PAGOS', 'err');
     return;
   }
   let nCdp = 0,
     nCrp = 0,
+    nPagos = 0,
     provs = {};
   if (wsCdp) {
     const objs = hojaAObjetos(wsCdp);
@@ -1257,18 +1779,61 @@ async function importarExcel(file, DB, push, recargar) {
     await DB.guardarLote('crp', regs);
     nCrp = regs.length;
   }
+  if (wsPagos) {
+    const objs = hojaAObjetos(wsPagos);
+    const regs = objs.map(o => {
+      const nit = String(pick(o, 'NIT PROVEEDOR', 'NIT')).replace(/\D/g, '');
+      const prov = String(pick(o, 'PROVEEDOR')).trim();
+      if (nit && prov) provs[nit] = provs[nit] || prov;
+      return {
+        fechaFactura: excelFechaISO(pick(o, 'FECHA DE ELABORACIÓN DE LA FACTURA', 'FECHA DE ELABORACION DE LA FACTURA')),
+        fechaInfo: excelFechaISO(pick(o, 'FECHA DE INGRESO A INFO')),
+        fechaVenc: excelFechaISO(pick(o, 'FECHA DE VENCIMIENTO')),
+        dias: toNum(pick(o, 'DIAS')),
+        factura: String(pick(o, 'FACTURA')).trim(),
+        valorAntesIva: toNum(pick(o, 'VALOR ANTES DE IVA')),
+        iva: toNum(pick(o, 'IVA')),
+        total: toNum(pick(o, 'TOTAL')),
+        proveedor: prov,
+        nit,
+        nContrato: String(pick(o, 'N°CONTRATO', 'N CONTRATO')).trim(),
+        valorContrato: toNum(pick(o, 'VALOR DEL CONTRATO')),
+        valorAdicion: toNum(pick(o, 'VALOR ADICIÓN CONTRATO', 'VALOR ADICION CONTRATO')),
+        op: String(pick(o, 'OP')).trim(),
+        crp: String(pick(o, 'CRP')).trim(),
+        valFacCrp: toNum(pick(o, 'Val Fac CRP', 'VAL FAC CRP')),
+        contratoCrp: String(pick(o, 'N° CONTRATO DE ACUERDO A CRP', 'N CONTRATO DE ACUERDO A CRP')).trim(),
+        contratoInteradm: String(pick(o, 'CONTRATO INTERADMINISTRATIVO')).trim(),
+        cliente: String(pick(o, 'CLIENTE')).trim(),
+        area: String(pick(o, 'AREA SUPERVISORA', 'ÁREA SUPERVISORA')).trim(),
+        supervisor: String(pick(o, 'NOMBRE SUPERVISOR')).trim(),
+        fechaSupervisor: excelFechaISO(pick(o, 'FECHA ENTREGA AL SUPERVISOR')),
+        fechaFinanciera: excelFechaISO(pick(o, 'FECHA DE RECEPCIÓN FINANCIERA', 'FECHA DE RECEPCION FINANCIERA')),
+        fechaContabilidad: excelFechaISO(pick(o, 'FECHA ENTREGA CONTABILIDAD')),
+        fechaTesoreria: excelFechaISO(pick(o, 'FECHA ENTREGA TESORERÍA', 'FECHA ENTREGA TESORERIA')),
+        pago: String(pick(o, 'PAGO')).trim(),
+        fechaPago: excelFechaISO(pick(o, 'FECHA PAGO')),
+        notaCredito: String(pick(o, 'NOTA CREDITO', 'NOTA CRÉDITO')).trim(),
+        observacion: String(pick(o, 'OBSERVACIÓN', 'OBSERVACION')).trim(),
+        fechaDevolucion: excelFechaISO(pick(o, 'FECHA DE DEVOLUCIÓN A LA SUPERVISIÓN', 'FECHA DE DEVOLUCION A LA SUPERVISION')),
+        informe: String(pick(o, 'INFORME')).trim()
+      };
+    }).filter(r => r.factura || r.proveedor);
+    await DB.guardarLote('pagos', regs);
+    nPagos = regs.length;
+  }
   // Guardar catálogo de proveedores (reconstruye el PROVEEDOR que estaba roto con #REF)
   const provArr = Object.entries(provs).map(([nit, nombre]) => ({
     nit,
     nombre
   }));
   if (provArr.length) await DB.guardarLote('proveedores', provArr);
-  push(`Importado: ${nCdp} CDP, ${nCrp} RP, ${provArr.length} proveedores`, 'ok');
+  push(`Importado: ${nCdp} CDP, ${nCrp} RP, ${nPagos} pagos, ${provArr.length} proveedores`, 'ok');
   recargar();
 }
 
 // --- Exportación a Excel (con todos los campos calculados resueltos) ---
-function exportarExcel(cdps, crps, cdpIndex, provIndex, push) {
+function exportarExcel(cdps, crps, pagos, cdpIndex, provIndex, push) {
   try {
     if (!window.XLSX) throw new Error('XLSX no disponible');
     const wb = XLSX.utils.book_new();
@@ -1339,9 +1904,45 @@ function exportarExcel(cdps, crps, cdpIndex, provIndex, push) {
         'SALDO': d - e
       };
     });
+
+    // CONTROL DE PAGOS (mismos encabezados del archivo original)
+    const pagosData = (pagos || []).map(p => ({
+      'FECHA DE ELABORACIÓN DE LA FACTURA': fmtFecha(p.fechaFactura),
+      'FECHA DE INGRESO A INFO': fmtFecha(p.fechaInfo),
+      'FECHA DE VENCIMIENTO': fmtFecha(p.fechaVenc),
+      'DIAS': p.dias ?? calcDiasPago(p.fechaInfo, p.fechaVenc),
+      'FACTURA': p.factura,
+      'VALOR ANTES DE IVA': toNum(p.valorAntesIva),
+      'IVA': toNum(p.iva),
+      'TOTAL': toNum(p.total ?? calcTotalFactura(p.valorAntesIva, p.iva)),
+      'PROVEEDOR': p.proveedor,
+      'NIT PROVEEDOR': p.nit,
+      'N°CONTRATO': p.nContrato,
+      'VALOR DEL CONTRATO': toNum(p.valorContrato),
+      'VALOR ADICIÓN CONTRATO': toNum(p.valorAdicion),
+      'OP': p.op,
+      'CRP': p.crp,
+      'Val Fac CRP': toNum(p.valFacCrp),
+      'N° CONTRATO DE ACUERDO A CRP': p.contratoCrp,
+      'AREA SUPERVISORA': p.area,
+      'CLIENTE': p.cliente,
+      'CONTRATO INTERADMINISTRATIVO': p.contratoInteradm,
+      'FECHA ENTREGA AL SUPERVISOR': fmtFecha(p.fechaSupervisor),
+      'NOMBRE SUPERVISOR': p.supervisor,
+      'FECHA DE RECEPCIÓN FINANCIERA': fmtFecha(p.fechaFinanciera),
+      'FECHA ENTREGA CONTABILIDAD': fmtFecha(p.fechaContabilidad),
+      'FECHA ENTREGA TESORERÍA': fmtFecha(p.fechaTesoreria),
+      'PAGO': p.pago,
+      'FECHA PAGO': fmtFecha(p.fechaPago),
+      'NOTA CREDITO': p.notaCredito,
+      'OBSERVACIÓN': p.observacion,
+      'FECHA DE DEVOLUCIÓN A LA SUPERVISIÓN': fmtFecha(p.fechaDevolucion),
+      'INFORME': p.informe
+    }));
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(cdpData), 'CDP');
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(crpData), 'CRP');
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(saldoData), 'SALDOS CDP');
+    if (pagosData.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(pagosData), 'CONTROL DE PAGOS');
     XLSX.writeFile(wb, `CDP_CRP_2026_${hoyISO()}.xlsx`);
     push('Excel exportado', 'ok');
   } catch (e) {
@@ -1368,9 +1969,11 @@ function App() {
   const [tab, setTab] = useState('resumen');
   const [cdps, setCdps] = useState([]);
   const [crps, setCrps] = useState([]);
+  const [pagos, setPagos] = useState([]);
   const [provsArr, setProvsArr] = useState([]);
   const [editCdp, setEditCdp] = useState(undefined); // undefined=cerrado, null=nuevo, obj=editar
   const [editCrp, setEditCrp] = useState(undefined);
+  const [editPago, setEditPago] = useState(undefined);
   const [confirm, setConfirm] = useState(null);
   const [dark, setDark] = useState(() => localStorage.getItem('tema') === 'dark');
   const fileRef = useRef(null);
@@ -1383,16 +1986,19 @@ function App() {
   const recargar = useCallback(() => {
     DB.listar('cdp').then(setCdps);
     DB.listar('crp').then(setCrps);
+    DB.listar('pagos').then(setPagos);
     DB.listar('proveedores').then(setProvsArr);
   }, []);
   useEffect(() => {
     const u1 = DB.suscribir('cdp', setCdps);
     const u2 = DB.suscribir('crp', setCrps);
     const u3 = DB.suscribir('proveedores', setProvsArr);
+    const u4 = DB.suscribir('pagos', setPagos);
     return () => {
       u1 && u1();
       u2 && u2();
       u3 && u3();
+      u4 && u4();
     };
   }, []);
 
@@ -1471,6 +2077,20 @@ function App() {
     setEditCrp(undefined);
     recargar();
   };
+  const guardarPago = async r => {
+    await DB.guardar('pagos', r);
+    // Upsert del proveedor al catálogo NIT→Proveedor
+    const nit = String(r.nit ?? '').replace(/\D/g, '');
+    if (nit && r.proveedor && !provIndex[nit]) {
+      await DB.guardar('proveedores', {
+        nit,
+        nombre: r.proveedor
+      });
+    }
+    push('Factura guardada', 'ok');
+    setEditPago(undefined);
+    recargar();
+  };
   const pedirEliminar = (col, reg, etiqueta) => setConfirm({
     titulo: `Eliminar ${etiqueta}`,
     mensaje: `¿Eliminar definitivamente "${etiqueta}"? Esta acción no se puede deshacer.`,
@@ -1534,7 +2154,7 @@ function App() {
     onClick: () => fileRef.current?.click(),
     className: "px-3 py-2 rounded-lg bg-white/15 hover:bg-white/25 text-sm"
   }, "Importar Excel"), /*#__PURE__*/React.createElement("button", {
-    onClick: () => exportarExcel(cdps, crps, cdpIndex, provIndex, push),
+    onClick: () => exportarExcel(cdps, crps, pagos, cdpIndex, provIndex, push),
     className: "px-3 py-2 rounded-lg bg-white/15 hover:bg-white/25 text-sm"
   }, "Exportar Excel"), /*#__PURE__*/React.createElement("button", {
     onClick: () => setDark(d => !d),
@@ -1552,13 +2172,16 @@ function App() {
     id: "crp",
     badge: crps.length
   }, "CRP"), /*#__PURE__*/React.createElement(Tab, {
+    id: "pagos",
+    badge: pagos.length
+  }, "Control de pagos"), /*#__PURE__*/React.createElement(Tab, {
     id: "saldos"
   }, "Saldos CDP"), /*#__PURE__*/React.createElement(Tab, {
     id: "analisis"
   }, "An\xE1lisis")), tab === 'resumen' && /*#__PURE__*/React.createElement("div", {
     className: "space-y-4 fade-in"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "grid grid-cols-2 md:grid-cols-4 gap-3"
+    className: "stagger grid grid-cols-2 md:grid-cols-4 gap-3"
   }, /*#__PURE__*/React.createElement(Kpi, {
     titulo: "Total CDP",
     valor: fmtCOP(kpi.tCdp),
@@ -1624,6 +2247,24 @@ function App() {
     provIndex: provIndex,
     onEditar: c => setEditCrp(c),
     onEliminar: c => pedirEliminar('crp', c, c.nRp)
+  })), tab === 'pagos' && /*#__PURE__*/React.createElement("div", {
+    className: "space-y-4 fade-in"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex justify-between items-center"
+  }, /*#__PURE__*/React.createElement("h2", {
+    className: "text-lg font-semibold"
+  }, "Control de pagos (facturas)"), editPago === undefined && /*#__PURE__*/React.createElement("button", {
+    onClick: () => setEditPago(null),
+    className: "px-4 py-2 rounded-lg bg-teal-600 text-white text-sm hover:bg-teal-700"
+  }, "+ Nueva factura")), editPago !== undefined && /*#__PURE__*/React.createElement(FormularioPago, {
+    registro: editPago,
+    pagos: pagos,
+    onGuardar: guardarPago,
+    onCancelar: () => setEditPago(undefined)
+  }), /*#__PURE__*/React.createElement(TablaPagos, {
+    pagos: pagos,
+    onEditar: p => setEditPago(p),
+    onEliminar: p => pedirEliminar('pagos', p, p.factura || 'factura')
   })), tab === 'saldos' && /*#__PURE__*/React.createElement("div", {
     className: "fade-in"
   }, /*#__PURE__*/React.createElement(SaldosCDP, {

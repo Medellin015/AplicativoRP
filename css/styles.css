@@ -1,4 +1,97 @@
-/* ===== Estilos propios: animaciones, scrollbar, ajustes ===== */
+/* ============================================================================
+   TOKENS DE DISEÑO — todo el sistema de tarjetas se controla desde aquí
+   ============================================================================ */
+:root {
+  /* Color de marca (sky-700) usado para entintar bordes y sombras — no negro puro */
+  --brand-rgb: 3 105 161;
+
+  /* Tarjetas */
+  --card-radius: 0.75rem;
+  --card-border-color: rgb(var(--brand-rgb) / 0.14);
+  --card-shadow:
+    0 1px 2px rgb(var(--brand-rgb) / 0.06),
+    0 2px 6px rgb(var(--brand-rgb) / 0.07),
+    0 10px 24px -8px rgb(var(--brand-rgb) / 0.12);
+  --card-shadow-hover:
+    0 2px 4px rgb(var(--brand-rgb) / 0.08),
+    0 6px 14px rgb(var(--brand-rgb) / 0.10),
+    0 18px 36px -8px rgb(var(--brand-rgb) / 0.18);
+  --card-lift: -2px;
+
+  /* Movimiento */
+  --transition-fast: 150ms;
+  --card-in-duration: 0.45s;
+  --card-in-distance: 8px;
+  --stagger-step: 70ms;
+  --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.dark {
+  /* En oscuro la marca se aclara (sky-400) y la sombra gana profundidad */
+  --brand-rgb: 56 189 248;
+  --card-border-color: rgb(var(--brand-rgb) / 0.16);
+  --card-shadow:
+    0 1px 2px rgb(2 6 23 / 0.5),
+    0 2px 8px rgb(var(--brand-rgb) / 0.05),
+    0 12px 28px -10px rgb(2 6 23 / 0.7);
+  --card-shadow-hover:
+    0 2px 4px rgb(2 6 23 / 0.5),
+    0 6px 16px rgb(var(--brand-rgb) / 0.10),
+    0 20px 40px -10px rgb(2 6 23 / 0.85);
+}
+
+/* ============================================================================
+   TARJETAS ELEVADAS (soft UI): borde hairline, sombras en capas entintadas,
+   hover lift y animación de entrada fade-up
+   ============================================================================ */
+.card {
+  border-radius: var(--card-radius);
+  border: 1px solid var(--card-border-color);
+  box-shadow: var(--card-shadow);
+  transition: transform var(--transition-fast) var(--ease-out),
+              box-shadow var(--transition-fast) var(--ease-out);
+  animation: cardIn var(--card-in-duration) var(--ease-out) backwards;
+  animation-delay: calc(var(--i, 0) * var(--stagger-step));
+  will-change: transform;
+}
+.card:hover {
+  transform: translateY(var(--card-lift));
+  box-shadow: var(--card-shadow-hover);
+}
+/* Variante para tarjetas con fondo degradado (KPI): borde claro sutil */
+.card-gradient { border-color: rgb(255 255 255 / 0.18); }
+
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(var(--card-in-distance)); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Entrada escalonada: cada tarjeta hija retrasa su entrada un paso más */
+.stagger > .card:nth-child(1)  { --i: 0; }
+.stagger > .card:nth-child(2)  { --i: 1; }
+.stagger > .card:nth-child(3)  { --i: 2; }
+.stagger > .card:nth-child(4)  { --i: 3; }
+.stagger > .card:nth-child(5)  { --i: 4; }
+.stagger > .card:nth-child(6)  { --i: 5; }
+.stagger > .card:nth-child(7)  { --i: 6; }
+.stagger > .card:nth-child(8)  { --i: 7; }
+.stagger > .card:nth-child(9)  { --i: 8; }
+.stagger > .card:nth-child(10) { --i: 9; }
+.stagger > .card:nth-child(11) { --i: 10; }
+.stagger > .card:nth-child(12) { --i: 11; }
+
+/* ===== Accesibilidad: respetar prefers-reduced-motion ===== */
+@media (prefers-reduced-motion: reduce) {
+  .card, .fade-in, .slide-up {
+    animation: none !important;
+    transition: none !important;
+  }
+  .card:hover { transform: none; }
+}
+
+/* ============================================================================
+   Estilos propios: animaciones, scrollbar, ajustes
+   ============================================================================ */
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes slideUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
 .fade-in { animation: fadeIn .25s ease; }
