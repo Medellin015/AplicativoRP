@@ -1,0 +1,30 @@
+rules_version = '2';
+
+// ============================================================================
+// Reglas de seguridad de Firestore para la app CDP/CRP/Pagos.
+//
+// La app inicia sesión ANÓNIMA (firebase-config.js -> signInAnonymously), así
+// que exigimos que exista una sesión autenticada (request.auth != null) para
+// leer o escribir. Es una herramienta interna: cualquier usuario autenticado
+// tiene acceso completo a las colecciones de la app.
+//
+// Colecciones usadas por la app: cdp, crp, pagos, proveedores.
+//
+// Publicar estas reglas:
+//   - Consola de Firebase -> Firestore Database -> pestaña "Reglas" -> pegar y
+//     "Publicar", o
+//   - Con Firebase CLI:  firebase deploy --only firestore:rules
+// ============================================================================
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Colecciones de la aplicación
+    match /cdp/{doc}         { allow read, write: if request.auth != null; }
+    match /crp/{doc}         { allow read, write: if request.auth != null; }
+    match /pagos/{doc}       { allow read, write: if request.auth != null; }
+    match /proveedores/{doc} { allow read, write: if request.auth != null; }
+
+    // Todo lo demás queda bloqueado por defecto
+    match /{document=**} { allow read, write: if false; }
+  }
+}
